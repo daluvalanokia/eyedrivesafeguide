@@ -1,0 +1,205 @@
+@* ============================================================
+   _SimPanel.cshtml — Simulation Control Panel
+   Rendered as a partial, placed NEXT TO destination row.
+   Visible only when: simulation toggle is ON + drive is active.
+   ============================================================ *@
+
+@* ── Simulation Toggle (shown always, above destination row) ── *@
+<div class="edg-sim-toggle-row mb-2" id="simToggleRow">
+    <div class="form-check form-switch d-inline-flex align-items-center gap-2">
+        <input class="form-check-input" type="checkbox" role="switch"
+               id="simToggle" onchange="SimulationEngine.isEnabled() ? SimulationEngine.disable() : SimulationEngine.enable()"
+               title="Enable simulation mode (no real GPS needed)">
+        <label class="form-check-label text-muted small" for="simToggle">
+            🚗 Simulation mode
+        </label>
+    </div>
+</div>
+
+@* ── Main Simulation Panel (shown after Start is clicked, sim enabled) ── *@
+<div id="simPanel" class="edg-sim-panel card border-warning mt-2" style="display:none">
+    <div class="card-header d-flex justify-content-between align-items-center py-2 bg-warning-subtle">
+        <span class="fw-semibold small">🚗 SIMULATION</span>
+        <span id="simStatus" class="text-muted small">Ready</span>
+    </div>
+
+    <div class="card-body py-2 px-3">
+
+        @* ── Speed control ── *@
+        <div class="edg-sim-row mb-2">
+            <span class="edg-sim-label">Speed</span>
+            <div class="edg-sim-controls">
+                <button class="edg-sim-btn edg-sim-btn-sm"
+                        onclick="SimulationEngine.adjustSpeed(-SimulationEngine.SPEED_STEP_KMH)"
+                        title="Decrease speed 5 km/h">−5</button>
+                <span class="edg-sim-value" id="simSpeedValue">50 km/h</span>
+                <button class="edg-sim-btn edg-sim-btn-sm"
+                        onclick="SimulationEngine.adjustSpeed(+SimulationEngine.SPEED_STEP_KMH)"
+                        title="Increase speed 5 km/h">+5</button>
+            </div>
+            @* Speed presets *@
+            <div class="edg-sim-presets mt-1">
+                <button class="edg-sim-preset" onclick="SimulationEngine.setSpeed(25)" title="Urban (25 km/h)">25</button>
+                <button class="edg-sim-preset" onclick="SimulationEngine.setSpeed(45)" title="Urban mid (45 km/h)">45</button>
+                <button class="edg-sim-preset" onclick="SimulationEngine.setSpeed(55)" title="Suburban (55 km/h)">55</button>
+                <button class="edg-sim-preset" onclick="SimulationEngine.setSpeed(65)" title="Highway (65 km/h)">65</button>
+                <button class="edg-sim-preset" onclick="SimulationEngine.setSpeed(80)" title="Freeway (80 km/h)">80</button>
+            </div>
+        </div>
+
+        <hr class="my-1">
+
+        @* ── Steer / Turn ── *@
+        <div class="edg-sim-row mb-2">
+            <span class="edg-sim-label">Steer</span>
+            <div class="edg-sim-controls">
+                <button class="edg-sim-btn edg-sim-btn-dir"
+                        onclick="SimulationEngine.steer('left')"
+                        title="Turn left">◀ Left</button>
+                <button class="edg-sim-btn edg-sim-btn-dir"
+                        onclick="SimulationEngine.steer('right')"
+                        title="Turn right">Right ▶</button>
+            </div>
+        </div>
+
+        @* ── Lane change ── *@
+        <div class="edg-sim-row mb-2">
+            <span class="edg-sim-label">Lane</span>
+            <div class="edg-sim-controls">
+                <button class="edg-sim-btn edg-sim-btn-dir"
+                        onclick="SimulationEngine.changeLane('left')"
+                        title="Move to left lane">← Left</button>
+                <button class="edg-sim-btn edg-sim-btn-dir"
+                        onclick="SimulationEngine.changeLane('right')"
+                        title="Move to right lane">Right →</button>
+            </div>
+        </div>
+
+        <hr class="my-1">
+
+        @* ── Playback controls ── *@
+        <div class="edg-sim-row mb-2">
+            <span class="edg-sim-label">Drive</span>
+            <div class="edg-sim-controls">
+                <button class="edg-sim-btn edg-sim-btn-play" id="simBtnPause"
+                        onclick="SimulationEngine.pause()" title="Pause simulation">⏸</button>
+                <button class="edg-sim-btn edg-sim-btn-play" id="simBtnResume"
+                        onclick="SimulationEngine.resume()" title="Resume simulation" disabled>▶</button>
+                <button class="edg-sim-btn edg-sim-btn-play"
+                        onclick="SimulationEngine.skipAhead(500)" title="Skip 500m ahead">⏭ +500m</button>
+            </div>
+        </div>
+
+        @* ── Test triggers (developer / demo mode) ── *@
+        <div class="edg-sim-row">
+            <span class="edg-sim-label text-muted">Test</span>
+            <div class="edg-sim-controls">
+                <button class="edg-sim-btn edg-sim-btn-test"
+                        onclick="SimulationEngine.forceCloseGap()"
+                        title="Force close following gap — triggers distance alert">⚠️ Close Gap</button>
+                <button class="edg-sim-btn edg-sim-btn-test"
+                        onclick="SimulationEngine.setSpeed(0)"
+                        title="Stop vehicle (simulate signal)">🛑 Stop</button>
+            </div>
+        </div>
+
+        @* ── Progress bar ── *@
+        <div class="mt-2">
+            <div class="progress" style="height: 6px;" title="Route progress">
+                <div class="progress-bar bg-warning" role="progressbar"
+                     id="simProgressBar" style="width: 0%"
+                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span class="text-muted" style="font-size:0.7rem">Start</span>
+                <span id="simProgressLabel" class="text-muted" style="font-size:0.7rem">— km to go</span>
+                <span class="text-muted" style="font-size:0.7rem">Dest</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@* ── Car icon CSS ── *@
+<style>
+    /* ── Simulation panel ───────────────────────────── */
+    .edg-sim-panel { max-width: 320px; }
+
+    .edg-sim-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .edg-sim-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6c757d;
+        font-weight: 600;
+    }
+
+    .edg-sim-controls {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .edg-sim-value {
+        font-size: 1rem;
+        font-weight: 700;
+        min-width: 72px;
+        text-align: center;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 2px 6px;
+    }
+
+    .edg-sim-btn {
+        border: 1px solid #dee2e6;
+        background: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.15s;
+        white-space: nowrap;
+    }
+    .edg-sim-btn:hover:not(:disabled) { background: #e9ecef; }
+    .edg-sim-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .edg-sim-btn-sm  { padding: 3px 10px; font-size: 0.85rem; }
+    .edg-sim-btn-dir { padding: 3px 10px; font-size: 0.8rem; background: #e8f4fc; border-color: #90caf9; }
+    .edg-sim-btn-dir:hover { background: #bbdefb; }
+    .edg-sim-btn-play{ padding: 3px 9px;  font-size: 0.85rem; }
+    .edg-sim-btn-test{ padding: 3px 9px;  font-size: 0.75rem; background: #fff3e0; border-color: #ffb74d; }
+    .edg-sim-btn-test:hover { background: #ffe0b2; }
+
+    .edg-sim-presets {
+        display: flex;
+        gap: 4px;
+    }
+    .edg-sim-preset {
+        font-size: 0.7rem;
+        padding: 1px 7px;
+        border: 1px solid #ced4da;
+        border-radius: 10px;
+        background: #f8f9fa;
+        cursor: pointer;
+    }
+    .edg-sim-preset:hover { background: #dee2e6; }
+
+    /* ── Leaflet car icon ───────────────────────────── */
+    .edg-sim-car {
+        font-size: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        transform-origin: center center;
+        transition: transform 0.3s ease;
+        filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+    }
+</style>
