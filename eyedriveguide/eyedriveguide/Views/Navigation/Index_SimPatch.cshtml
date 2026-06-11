@@ -1,0 +1,99 @@
+@* ============================================================
+   Index.cshtml — SIMULATION PATCH
+   These are the diffs to apply to the existing Index.cshtml.
+   
+   Sections marked [ADD] are new. [MODIFY] shows what changes.
+   ============================================================ *@
+
+@* ────────────────────────────────────────────────────────────
+   [ADD] 1. After the destination row div, insert the sim panel partial:
+   ──────────────────────────────────────────────────────────── *@
+
+@* FIND this in Index.cshtml:
+     <div id="destinationRow"> ... </div>
+   ADD AFTER IT: *@
+
+<partial name="_SimPanel" />
+
+@* ────────────────────────────────────────────────────────────
+   [MODIFY] 2. The Start button — add onclick check for sim mode
+   ──────────────────────────────────────────────────────────── *@
+
+@* FIND:
+     <button ... onclick="startDrive()">▶ Start Navigation</button>
+   REPLACE onclick with: *@
+
+@*  onclick="startDrive()" — no change needed, startDrive() already handles sim *@
+
+@* ────────────────────────────────────────────────────────────
+   [ADD] 3. Script includes — add BEFORE the closing </body> or in @section Scripts
+   ──────────────────────────────────────────────────────────── *@
+
+@section Scripts {
+    @* ... existing scripts ... *@
+
+    @* Simulation engine — loaded for all users, but stays inactive unless toggled *@
+    <script src="~/js/simulation.js" asp-append-version="true"></script>
+
+    @* Simulation → highway-algorithm wiring *@
+    <script>
+    // ── Wire SimulationEngine into startDrive() ──────────────
+    // Monkey-patch the existing startDrive to redirect GPS to simulation
+    const _origStartDrive = startDrive;
+    async function startDrive() {
+        await _origStartDrive();
+
+        if (!SimulationEngine.isEnabled()) return;
+
+        // Wait for route to load before starting the sim walk
+        const _origRouteLoaded = hubConnection._methods['routeloaded']?.[0];
+        hubConnection.off('RouteLoaded');
+        hubConnection.on('RouteLoaded', data => {
+            // Restore original handler
+            if (_origRouteLoaded) hubConnection.on('RouteLoaded', _origRouteLoaded);
+            _origRouteLoaded?.(data);
+
+            // Show sim panel now that route is ready
+            document.getElementById('simPanel').style.display = '';
+
+            // Start simulation engine
+            SimulationEngine.start(
+                data,
+                // onTick — feeds hub just like real GPS
+                async (lat, lng, kmh, bearing, travelledM, totalM, distM) => {
+                    MapController.updatePosition(lat, lng);
+                    updateSpeedDisplay(kmh, currentSpeedLimitKmh);
+
+                    if (hubConnection?.state === signalR.HubConnectionState.Connected) {
+                        await hubConnection.invoke(
+                            'UpdatePosition',
+                            lat, lng, kmh,
+                            0,    // accelMag — 0 in sim
+                            0,    // dbLevel  — 0 in sim
+                            distM // frontDistanceM — synthesised
+                        ).catch(() => {});
+                    }
+                },
+                // onDone — destination reached
+                async () => {
+                    setStatus('🏁 Simulation complete — destination reached!');
+                    await stopDrive();
+                }
+            );
+        });
+    }
+
+    // ── Wire stopDrive to stop simulation ───────────────────
+    const _origStopDrive = stopDrive;
+    async function stopDrive() {
+        SimulationEngine.stop();
+        document.getElementById('simPanel').style.display = 'none';
+        await _origStopDrive();
+    }
+
+    // ── Auto-enable if ?sim=1 in URL ─────────────────────────
+    if (new URLSearchParams(window.location.search).get('sim') === '1') {
+        SimulationEngine.enable();
+    }
+    </script>
+}
