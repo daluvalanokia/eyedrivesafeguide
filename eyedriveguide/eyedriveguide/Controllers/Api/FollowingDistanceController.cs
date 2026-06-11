@@ -2,16 +2,21 @@
 // FollowingDistanceController.cs
 // REST API for following distance history and baselines.
 //
-// GET  /api/following/history          → last 20 rides (all bands)
-// GET  /api/following/history/{band}   → last 10 rides for one band
-// GET  /api/following/baseline         → current baseline for all bands
-// GET  /api/following/baseline/{band}  → baseline for one band
-// DELETE /api/following/history/{id}   → remove a specific ride record
+// GET    /api/following/history          → last 20 rides (all bands)
+// GET    /api/following/history/{band}   → last 10 rides for one band
+// GET    /api/following/baseline         → baselines for all bands
+// GET    /api/following/baseline/{band}  → baseline for one band
+// DELETE /api/following/history/{id}     → remove a ride record
+//
+// FIX CS1998: DeleteHistoryEntry now properly awaits the async delete
+//             call instead of being a no-op sync method.
 // ============================================================
+using EyeDriveGuide.Data;
 using EyeDriveGuide.Models;
 using EyeDriveGuide.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EyeDriveGuide.Controllers.Api;
 
@@ -20,6 +25,7 @@ namespace EyeDriveGuide.Controllers.Api;
 [Authorize]
 public class FollowingDistanceController(
     FollowingDistanceHistoryService historyService,
+    AppDbContext db,
     ILogger<FollowingDistanceController> logger) : ControllerBase
 {
     private string UserId => User.Identity?.Name ?? "anonymous";
@@ -58,10 +64,10 @@ public class FollowingDistanceController(
     {
         var baselines = await historyService.GetAllBaselinesAsync(UserId);
         return Ok(baselines.Select(kv => new {
-            band = kv.Key.ToString(),
-            bandId = (int)kv.Key,
+            band      = kv.Key.ToString(),
+            bandId    = (int)kv.Key,
             baselineM = Math.Round(kv.Value, 1),
-            hasData = kv.Value > 0
+            hasData   = kv.Value > 0
         }));
     }
 
@@ -74,29 +80,37 @@ public class FollowingDistanceController(
 
         var baseline = await historyService.GetPersonalBaselineAsync(UserId, band);
         return Ok(new {
-            band = band.ToString(),
+            band      = band.ToString(),
             baselineM = Math.Round(baseline, 1),
-            hasData = baseline > 0,
-            message = baseline <= 0
+            hasData   = baseline > 0,
+            message   = baseline <= 0
                 ? "Not enough ride history yet (minimum 3 rides needed)"
                 : $"Your typical following distance at {BandDescription(band)} is {baseline:F0} m"
         });
     }
 
     // ── DELETE /api/following/history/{id} ───────────────────
+    // FIX CS1998: properly await the DB delete so the method is genuinely async.
     [HttpDelete("history/{id:int}")]
     public async Task<IActionResult> DeleteHistoryEntry(int id)
     {
-        // Handled via HistoryService since it needs the scoped DbContext
-        // (Simplified here — full impl uses injected db context)
-        logger.LogInformation("Delete following history {Id} by {User}", id, UserId);
+        var entry = await db.FollowingDistanceHistory
+            .FirstOrDefaultAsync(h => h.Id == id && h.UserId == UserId);
+
+        if (entry == null)
+            return NotFound(new { error = "Record not found or not owned by you" });
+
+        db.FollowingDistanceHistory.Remove(entry);
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Deleted following distance history {Id} for user {User}", id, UserId);
         return Ok(new { message = "Deleted" });
     }
 
     private static string BandDescription(SpeedBand band) => band switch
     {
         SpeedBand.UrbanLow => "0–25 km/h (urban)",
-        SpeedBand.UrbanMid => "26–45 km/h (urban)",
+        SpeedBand.UrbanMid => "26–45 km/h (urban mid)",
         SpeedBand.Suburban => "46–55 km/h (suburban)",
         SpeedBand.Highway  => "56–65 km/h (highway)",
         SpeedBand.Freeway  => "66+ km/h (freeway)",
