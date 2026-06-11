@@ -8,18 +8,21 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #map { height: 42vh; min-height: 220px; border-radius: 12px; }
-        .edg-speed-display { font-size: 2.6rem; font-weight: 800; line-height: 1; }
-        .edg-speed-limit  { font-size: 1rem; opacity: .7; }
-        .edg-alert-banner { border-radius: 10px; font-size: 1rem; font-weight: 600; padding: .75rem 1rem; margin-bottom: .5rem; display: flex; align-items: center; gap: .6rem; animation: slideIn .3s ease; }
-        @@keyframes slideIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
-        .edg-alert-info    { background:#1e3a5f; color:#cfe2ff; }
-        .edg-alert-warning { background:#7c4a00; color:#fff3cd; }
-        .edg-alert-danger  { background:#6e0e0e; color:#f8d7da; }
-        .edg-alert-success { background:#0d4e1c; color:#d1e7dd; }
-        #blindSpotBanner { background: #3d2200; color: #ffd966; font-weight: 700; text-align: center; border-radius: 10px; padding: .6rem; display: none; }
-        .edg-mode-btn { min-width: 140px; font-size: .85rem; }
-        .edg-drive-btn { font-size: 1.1rem; font-weight: 700; min-height: 56px; }
-        #dbMeter { height: 6px; border-radius: 3px; transition: width .4s; }
+        .edg-speed-display  { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+        .edg-speed-limit    { font-size: 1rem; opacity: .7; }
+        .edg-alert-banner   { border-radius: 10px; font-size: 1rem; font-weight: 600; padding: .75rem 1rem; margin-bottom: .5rem; display: flex; align-items: center; gap: .6rem; animation: slideIn .3s ease; }
+        @@keyframes slideIn  { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+        .edg-alert-info     { background:#1e3a5f; color:#cfe2ff; }
+        .edg-alert-warning  { background:#7c4a00; color:#fff3cd; }
+        .edg-alert-danger   { background:#6e0e0e; color:#f8d7da; }
+        .edg-alert-success  { background:#0d4e1c; color:#d1e7dd; }
+        #blindSpotBanner    { background:#3d2200; color:#ffd966; font-weight:700; text-align:center; border-radius:10px; padding:.6rem; display:none; }
+        .edg-mode-btn       { min-width: 140px; font-size: .85rem; }
+        .edg-drive-btn      { font-size: 1.1rem; font-weight: 700; min-height: 56px; }
+        #dbMeter            { height: 6px; border-radius: 3px; transition: width .4s; }
+        /* Following distance HUD */
+        .edg-dist-hud       { display:inline-flex; align-items:center; gap:6px; border:2px solid #6c757d; border-radius:8px; padding:4px 10px; font-size:1.1rem; font-weight:600; transition:border-color .3s; }
+        .edg-dist-source    { font-size: 0.75rem; margin-top: 2px; }
     </style>
 }
 
@@ -51,14 +54,26 @@
                 </select>
             </div>
 
+            <!-- Simulation toggle row (hidden until simulation.js loads) -->
+            <div id="simToggleRow" class="d-flex align-items-center gap-2 mb-2" style="display:none!important">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="simToggle"
+                           onchange="SimulationEngine?.setEnabled(this.checked)">
+                    <label class="form-check-label small text-muted" for="simToggle">Simulation mode</label>
+                </div>
+            </div>
+
             <div class="d-flex gap-2">
                 <button id="btnStart" class="btn btn-success edg-drive-btn flex-grow-1"
                         onclick="startDrive()">▶ Start Navigation</button>
-                <button id="btnStop" class="btn btn-danger edg-drive-btn px-4"
+                <button id="btnStop"  class="btn btn-danger edg-drive-btn px-4"
                         onclick="stopDrive()" style="display:none">⏹ Stop</button>
             </div>
         </div>
     </div>
+
+    <!-- Simulation control panel (hidden until route loads and sim is enabled) -->
+    <partial name="_SimPanel" />
 
     <!-- Permissions warning -->
     <div id="permWarning" class="alert alert-warning py-2 small" style="display:none">
@@ -73,6 +88,13 @@
                 <div id="speedDisplay" class="edg-speed-display text-white">0</div>
                 <div class="edg-speed-limit text-muted">km/h</div>
                 <div id="speedLimitBadge" class="badge bg-secondary mt-1 small">limit —</div>
+                <!-- Following distance HUD -->
+                <div id="followingDistanceHud" class="edg-dist-hud mt-2 mx-auto" style="display:none">
+                    <span class="dist-icon">📏</span>
+                    <span class="dist-current">—</span>
+                    <span class="dist-recommended"></span>
+                </div>
+                <div id="distanceSource" class="edg-dist-source text-muted"></div>
             </div>
         </div>
         <div class="col-8">
@@ -91,7 +113,7 @@
         </div>
     </div>
 
-    <!-- Lane position control (shown when route has ≥2 lanes) -->
+    <!-- Lane position control -->
     <div id="laneControl" class="card border-0 shadow-sm mb-3 p-3" style="display:none">
         <div class="small text-muted text-center mb-2">Your Lane Position</div>
         <div class="d-flex justify-content-center gap-2 flex-wrap" id="laneButtons"></div>
@@ -154,15 +176,26 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js" crossorigin="anonymous"></script>
 <script>
     window.EDG_SETTINGS = {
-        distractionDbLevel: @Model.Settings.DistractionDbLevel,
-        yellowThreshold: @Model.Settings.YellowDistanceThreshold,
-        redThreshold: @Model.Settings.RedDistanceThreshold,
-        followingDistanceMetres: @Model.Settings.FollowingDistanceMetres,
-        weatherNightMode: @Model.Settings.WeatherNightModeAutoAdjust.ToString().ToLower()
+        distractionDbLevel:       @Model.Settings.DistractionDbLevel,
+        yellowThreshold:          @Model.Settings.YellowDistanceThreshold,
+        redThreshold:             @Model.Settings.RedDistanceThreshold,
+        followingDistanceMetres:  @Model.Settings.FollowingDistanceMetres,
+        weatherNightMode:         @Model.Settings.WeatherNightModeAutoAdjust.ToString().ToLower()
     };
 </script>
-<script src="~/js/alert-system.js" asp-append-version="true"></script>
-<script src="~/js/map-controller.js" asp-append-version="true"></script>
-<script src="~/js/sensor-monitor.js" asp-append-version="true"></script>
-<script src="~/js/highway-algorithm.js" asp-append-version="true"></script>
+<script src="~/js/alert-system.js"       asp-append-version="true"></script>
+<script src="~/js/map-controller.js"     asp-append-version="true"></script>
+<script src="~/js/sensor-monitor.js"     asp-append-version="true"></script>
+<script src="~/js/distance-monitor.js"   asp-append-version="true"></script>
+<script src="~/js/simulation.js"         asp-append-version="true"></script>
+<script src="~/js/highway-algorithm.js"  asp-append-version="true"></script>
+<script>
+    // Reveal sim toggle after scripts load (highway-algorithm.js checks SimulationEngine)
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof SimulationEngine !== 'undefined') {
+            const row = document.getElementById('simToggleRow');
+            if (row) row.style.removeProperty('display');
+        }
+    });
+</script>
 }
