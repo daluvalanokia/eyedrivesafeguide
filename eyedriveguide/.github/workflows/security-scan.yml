@@ -1,0 +1,113 @@
+# ============================================================
+# security-scan.yml — SECURITY FIX OW-6
+# Runs on every push and PR. Checks for:
+#   1. Vulnerable NuGet packages (dotnet list package --vulnerable)
+#   2. npm audit on wwwroot JS dependencies (if package.json exists)
+#   3. Secret scanning via truffleHog
+# ============================================================
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly even if no push (catch newly published CVEs)
+    - cron: '0 6 * * 1'
+
+jobs:
+  dotnet-vulnerability-scan:
+    name: .NET Vulnerable Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore eyedriveguide/eyedriveguide/eyedriveguide.csproj
+
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list eyedriveguide/eyedriveguide/eyedriveguide.csproj \
+            package --vulnerable --include-transitive 2>&1 | tee vuln-report.txt
+          if grep -q "has the following vulnerable packages" vuln-report.txt; then
+            echo "::error::Vulnerable NuGet packages found!"
+            cat vuln-report.txt
+            exit 1
+          fi
+
+      - name: Upload vulnerability report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-vulnerability-report
+          path: vuln-report.txt
+
+  npm-audit:
+    name: npm Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for package.json
+        id: check-npm
+        run: |
+          if [ -f "eyedriveguide/eyedriveguide/package.json" ]; then
+            echo "has_npm=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_npm=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: npm audit
+        if: steps.check-npm.outputs.has_npm == 'true'
+        working-directory: eyedriveguide/eyedriveguide
+        run: |
+          npm ci
+          npm audit --audit-level=moderate
+
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for secret scanning
+
+      - name: TruffleHog scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          extra_args: --only-verified
+
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp, javascript
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build
+        run: |
+          dotnet restore eyedriveguide/eyedriveguide.sln
+          dotnet build eyedriveguide/eyedriveguide.sln --no-restore
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
