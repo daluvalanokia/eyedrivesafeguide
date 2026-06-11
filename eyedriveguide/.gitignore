@@ -1,6 +1,7 @@
-## .NET gitignore
+## .NET / Visual Studio — EyeDriveSafeGuide
+## Covers VS, VS Code, Rider, Copilot, Resharper
 
-# Build results
+# ── Build output ──────────────────────────────────────────────
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -16,31 +17,66 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
-# Visual Studio files
+# ── Visual Studio ─────────────────────────────────────────────
 .vs/
 *.user
 *.suo
 *.sln.docstates
+*.sln.ide
+*.rsuser
+# Visual Studio cache/options
 .vscode/
+# Local settings (per-machine, never commit)
+launchSettings.json
 
-# NuGet
+# ── GitHub Copilot / AI assistants ────────────────────────────
+.github/copilot-instructions.md
+.copilot/
+.cursor/
+.aider*
+.continue/
+
+# ── Rider / JetBrains ─────────────────────────────────────────
+.idea/
+*.sln.iml
+_ReSharper*/
+*.DotSettings.user
+
+# ── NuGet ─────────────────────────────────────────────────────
 *.nupkg
 *.snupkg
 .nuget/
 packages/
+# NuGet restore lock file (keep packages.lock.json if you use locked mode)
+# packages.lock.json
 
-# ASP.NET
+# ── ASP.NET / Razor ───────────────────────────────────────────
 wwwroot/bundle/
+wwwroot/dist/
+# Published output
+**/publish/
 
-# SQLite runtime files
+# ── SQLite runtime files (never commit the live DB) ───────────
 *.db
 *.db-shm
 *.db-wal
 
-# Test results
+# ── Secrets / environment (NEVER commit) ─────────────────────
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.p12
+secrets.json
+.env
+.env.*
+
+# ── Test results ──────────────────────────────────────────────
 TestResults/
 *.trx
+*.coveragexml
+coverage*/
 
-# Rider
-.idea/
-*.sln.iml
+# ── OS noise ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
