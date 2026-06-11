@@ -527,3 +527,55 @@ public class DriveHub : Hub
         return Math.Max(0, Math.Round(100 - (stdDev / avg * 100), 1));
     }
 }
+
+// ============================================================
+// DriveSessionData — in-memory session state
+// Restored: was accidentally dropped during security merge.
+// Extended with StartPosition (DS-5) and simulation fields.
+// ============================================================
+public class DriveSessionData
+{
+    // ── Identity ─────────────────────────────────────────────
+    public string  SessionId          { get; set; } = string.Empty;
+    public string  Mode               { get; set; } = "JustDrive";
+    public string? DestinationAddress { get; set; }
+    public int?    DbSessionId        { get; set; }
+    public DateTime StartedAt         { get; set; }
+
+    // ── Position ─────────────────────────────────────────────
+    public GeoCoordinate? StartPosition    { get; set; }  // SECURITY FIX DS-5: for delta PositionAck
+    public GeoCoordinate? LastPosition     { get; set; }
+    public GeoCoordinate? PreviousPosition { get; set; }
+
+    // ── Route / segment ──────────────────────────────────────
+    public RouteSegment? CurrentSegment { get; set; }
+
+    // ── Drive state ──────────────────────────────────────────
+    public double CurrentSpeedKmh  { get; set; }
+    public int    CurrentLane      { get; set; } = 1;
+    public double TotalDistanceKm  { get; set; }
+    public List<double> SpeedReadings { get; set; } = new();
+    public bool NightModeActive    { get; set; }
+    public bool AdverseWeather     { get; set; }
+
+    // ── Merge / exit flags ───────────────────────────────────
+    public bool MergedToHighway    { get; set; }
+    public bool PostMergeAlertSent { get; set; }
+
+    // ── Alert cooldown ───────────────────────────────────────
+    public DateTime? LastSpeedAlertAt { get; set; }
+
+    // ── Alert counters ───────────────────────────────────────
+    public int SpeedAlertCount       { get; set; }
+    public int DistractionAlertCount { get; set; }
+    public int BackingAlertCount     { get; set; }
+    public int LaneChangeAlertCount  { get; set; }
+    public int MergeAlertCount       { get; set; }
+    public int ExitAlertCount        { get; set; }
+
+    // ── Following distance (PR #2) ───────────────────────────
+    public List<DistanceSample> FollowingDistanceSamples  { get; set; } = new();
+    public Dictionary<SpeedBand, double>? PersonalBaselines { get; set; }
+    public int FollowingDistanceAlertCount { get; set; }
+}
+
