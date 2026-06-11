@@ -1,0 +1,87 @@
+@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="edg-hero text-center py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-7 col-md-9">
+                <div class="edg-hero-icon mb-3">🚗</div>
+                <h1 class="display-4 fw-bold text-white mb-3">eyedriveguide</h1>
+                <p class="lead text-light mb-4 opacity-75">
+                    Smart highway driving assistant — lane guidance, merge alerts, speed monitoring,
+                    and distraction detection. All from your phone's browser.
+                </p>
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <a asp-controller="Navigation" asp-action="Index"
+                       class="btn btn-primary btn-lg px-5 edg-btn-start">
+                        🧭 Start Driving
+                    </a>
+                    <a asp-controller="Configuration" asp-action="Index"
+                       class="btn btn-outline-light btn-lg px-4">
+                        ⚙️ Settings
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container py-5">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card edg-feature-card h-100 border-0">
+                <div class="card-body text-center p-4">
+                    <div class="edg-feature-icon mb-3">🛣️</div>
+                    <h5 class="fw-bold">Highway Merge</h5>
+                    <p class="text-muted small">Staged merge alerts — speed matching, mirror checks, gap detection. Smooth every on-ramp entry.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card edg-feature-card h-100 border-0">
+                <div class="card-body text-center p-4">
+                    <div class="edg-feature-icon mb-3">🔀</div>
+                    <h5 class="fw-bold">Lane Discipline</h5>
+                    <p class="text-muted small">Passing-lane loiter alerts, on-ramp yield guidance, blind-spot holds, and deceleration warnings.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card edg-feature-card h-100 border-0">
+                <div class="card-body text-center p-4">
+                    <div class="edg-feature-icon mb-3">🚪</div>
+                    <h5 class="fw-bold">Exit Guidance</h5>
+                    <p class="text-muted small">4-stage exit ladder with multi-lane stagger. Never miss an exit or make a last-second cut.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card edg-feature-card h-100 border-0">
+                <div class="card-body text-center p-4">
+                    <div class="edg-feature-icon mb-3">⚡</div>
+                    <h5 class="fw-bold">Speed Alerts</h5>
+                    <p class="text-muted small">Yellow and red speed thresholds with construction-zone auto-reduction. GPS-based, no camera required.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card edg-feature-card h-100 border-0">
+                <div class="card-body text-center p-4">
+                    <div class="edg-feature-icon mb-3">🔊</div>
+                    <h5 class="fw-bold">Distraction Alert</h5>
+                    <p class="text-muted small">Microphone monitors cabin noise in dB. Alerts when sound exceeds your configured threshold.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card edg-feature-card h-100 border-0">
+                <div class="card-body text-center p-4">
+                    <div class="edg-feature-icon mb-3">📊</div>
+                    <h5 class="fw-bold">Drive Summary</h5>
+                    <p class="text-muted small">Post-drive score with distance, average speed, speed consistency, and alert counts by type.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

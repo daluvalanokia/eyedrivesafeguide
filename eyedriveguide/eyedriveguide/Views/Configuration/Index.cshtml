@@ -1,0 +1,254 @@
+@model ConfigurationViewModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="container py-4">
+    <h2 class="fw-bold mb-4">⚙️ Configuration</h2>
+
+    <ul class="nav nav-tabs mb-4" id="configTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="profile-tab" data-bs-toggle="tab"
+                    data-bs-target="#profile" type="button">👤 Profile</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="alerts-tab" data-bs-toggle="tab"
+                    data-bs-target="#alerts" type="button">🔔 Alerts</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="addresses-tab" data-bs-toggle="tab"
+                    data-bs-target="#addresses" type="button">📍 Addresses</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- Profile Tab -->
+        <div class="tab-pane fade show active" id="profile" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="fw-semibold mb-3">User Profile</h5>
+                    <form asp-action="SaveProfile" asp-controller="Configuration" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="Profile.Id" />
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="Profile.FullName" class="form-label"></label>
+                                <input asp-for="Profile.FullName" class="form-control edg-input" placeholder="Your full name" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Profile.PhoneNumber" class="form-label"></label>
+                                <input asp-for="Profile.PhoneNumber" class="form-control edg-input" placeholder="+1 555 000 0000" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Profile.Email" class="form-label"></label>
+                                <input asp-for="Profile.Email" type="email" class="form-control edg-input" placeholder="you@email.com" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Profile.DeviceMake" class="form-label"></label>
+                                <input asp-for="Profile.DeviceMake" class="form-control edg-input" placeholder="e.g. Apple" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Profile.DeviceModel" class="form-label"></label>
+                                <input asp-for="Profile.DeviceModel" class="form-control edg-input" placeholder="e.g. iPhone 15" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Profile.Imei" class="form-label"></label>
+                                <input asp-for="Profile.Imei" class="form-control edg-input" placeholder="15-digit IMEI" />
+                            </div>
+                            <div class="col-12">
+                                <label asp-for="Profile.OsBuild" class="form-label"></label>
+                                <input asp-for="Profile.OsBuild" class="form-control edg-input" placeholder="e.g. iOS 17.4" />
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary px-4">💾 Save Profile</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Tab -->
+        <div class="tab-pane fade" id="alerts" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="fw-semibold mb-3">Alert Thresholds</h5>
+                    <form asp-action="SaveSettings" asp-controller="Configuration" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="Settings.Id" />
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="Settings.YellowDistanceThreshold" class="form-label">
+                                    🟡 Yellow Speed Alert (km/h over limit)
+                                </label>
+                                <input asp-for="Settings.YellowDistanceThreshold" type="number"
+                                       min="1" max="50" class="form-control edg-input" />
+                                <div class="form-text">Fires when speed exceeds limit by this amount (default 10)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Settings.RedDistanceThreshold" class="form-label">
+                                    🔴 Red Speed Alert (km/h over limit)
+                                </label>
+                                <input asp-for="Settings.RedDistanceThreshold" type="number"
+                                       min="1" max="100" class="form-control edg-input" />
+                                <div class="form-text">Fires when speed exceeds limit by this amount (default 15)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Settings.SpeedAlertPollIntervalMinutes" class="form-label">
+                                    ⏱️ Speed Alert Poll Interval (min)
+                                </label>
+                                <input asp-for="Settings.SpeedAlertPollIntervalMinutes" type="number"
+                                       min="1" max="60" class="form-control edg-input" />
+                                <div class="form-text">Minimum minutes between speed alerts (default 2)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Settings.DistractionDbLevel" class="form-label">
+                                    🔊 Distraction Noise Level (dB)
+                                </label>
+                                <input asp-for="Settings.DistractionDbLevel" type="number"
+                                       min="30" max="120" class="form-control edg-input" />
+                                <div class="form-text">Alert when cabin noise exceeds this (default 60 dB)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Settings.FollowingDistanceMetres" class="form-label">
+                                    🚗 Min Following Distance (m)
+                                </label>
+                                <input asp-for="Settings.FollowingDistanceMetres" type="number"
+                                       min="5" max="200" class="form-control edg-input" />
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Settings.PassingLaneLoiterSeconds" class="form-label">
+                                    🛣️ Passing Lane Loiter Timeout (sec)
+                                </label>
+                                <input asp-for="Settings.PassingLaneLoiterSeconds" type="number"
+                                       min="10" max="600" class="form-control edg-input" />
+                                <div class="form-text">Alert when in left lane at speed limit for this long (default 60)</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check form-switch edg-switch">
+                                    <input asp-for="Settings.WeatherNightModeAutoAdjust"
+                                           class="form-check-input" type="checkbox" role="switch" />
+                                    <label asp-for="Settings.WeatherNightModeAutoAdjust" class="form-check-label">
+                                        🌙 Auto-adjust following distance for night / weather
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary px-4">💾 Save Settings</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Addresses Tab -->
+        <div class="tab-pane fade" id="addresses" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-semibold mb-0">📍 Saved Addresses</h5>
+                        <button class="btn btn-primary btn-sm" onclick="openAddressModal()">+ Add Address</button>
+                    </div>
+
+                    <div id="addressList" class="list-group list-group-flush">
+                        @foreach (var addr in Model.Addresses)
+                        {
+                            <div class="list-group-item edg-addr-item d-flex justify-content-between align-items-start"
+                                 data-id="@addr.Id">
+                                <div>
+                                    <span class="badge edg-badge-@addr.Type.ToString().ToLower() me-2">@addr.Type</span>
+                                    <strong>@addr.Label</strong>
+                                    <div class="text-muted small">@addr.FullAddress</div>
+                                </div>
+                                <div class="d-flex gap-2 ms-2">
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            onclick="editAddress(@addr.Id)">✏️</button>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            onclick="deleteAddress(@addr.Id)">🗑️</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div id="noAddresses" class="text-muted text-center py-4"
+                         style="display: @(Model.Addresses.Count == 0 ? "block" : "none")">
+                        No addresses saved yet. Add your home and frequent destinations.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Address Modal -->
+<div class="modal fade" id="addressModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content edg-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="addressModalTitle">Add Address</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="addrId" value="0" />
+                <div class="mb-3">
+                    <label class="form-label">Label <span class="text-danger">*</span></label>
+                    <input type="text" id="addrLabel" class="form-control edg-input" placeholder="e.g. Home, Work, Gym" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Type</label>
+                    <select id="addrType" class="form-select edg-input">
+                        <option value="0">Home</option>
+                        <option value="1">Work</option>
+                        <option value="2" selected>Frequent</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Street Address <span class="text-danger">*</span></label>
+                    <input type="text" id="addrStreet" class="form-control edg-input" placeholder="123 Main St" />
+                </div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label">City</label>
+                        <input type="text" id="addrCity" class="form-control edg-input" />
+                    </div>
+                    <div class="col-3">
+                        <label class="form-label">State</label>
+                        <input type="text" id="addrState" class="form-control edg-input" />
+                    </div>
+                    <div class="col-3">
+                        <label class="form-label">Zip</label>
+                        <input type="text" id="addrZip" class="form-control edg-input" />
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <label class="form-label">Country</label>
+                    <input type="text" id="addrCountry" class="form-control edg-input" placeholder="US" value="US" />
+                </div>
+                <div class="row g-2 mt-2">
+                    <div class="col-6">
+                        <label class="form-label">Latitude <span class="text-muted small">(for routing)</span></label>
+                        <input type="number" id="addrLat" step="any" class="form-control edg-input" placeholder="e.g. 40.7128" />
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Longitude <span class="text-muted small">(for routing)</span></label>
+                        <input type="number" id="addrLng" step="any" class="form-control edg-input" placeholder="e.g. -74.0060" />
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary w-100"
+                            onclick="useCurrentLocationForAddress()">📍 Use My Current Location</button>
+                </div>
+                <div id="addrError" class="alert alert-danger mt-3" style="display:none"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveAddress()">💾 Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="~/js/address-manager.js" asp-append-version="true"></script>
+}

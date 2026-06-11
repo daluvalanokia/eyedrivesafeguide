@@ -1,0 +1,174 @@
+/* ── eyedriveguide — mobile-first CSS ── */
+
+:root {
+    --edg-bg:        #0f0f1a;
+    --edg-surface:   #1a1a2e;
+    --edg-card:      #1e1e30;
+    --edg-border:    #2a2a44;
+    --edg-accent:    #4a90d9;
+    --edg-text:      #e8e8f0;
+    --edg-muted:     #8888aa;
+    --edg-nav-h:     56px;
+}
+
+html, body {
+    font-size: 15px;
+    background: var(--edg-bg);
+    color: var(--edg-text);
+    min-height: 100%;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 768px) {
+    html { font-size: 16px; }
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.edg-body { background: var(--edg-bg); }
+
+.edg-navbar {
+    background: var(--edg-surface) !important;
+    border-bottom: 1px solid var(--edg-border) !important;
+    min-height: var(--edg-nav-h);
+}
+
+.edg-brand {
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: -.02em;
+    color: var(--edg-text) !important;
+}
+
+.edg-brand-icon { margin-right: .3rem; }
+
+.edg-main { padding-bottom: 2rem; }
+
+/* ── Hero ──────────────────────────────────────────────────────────────────── */
+.edg-hero {
+    background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0d2640 100%);
+    border-bottom: 1px solid var(--edg-border);
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+}
+.edg-hero-icon { font-size: 4rem; }
+
+.edg-btn-start {
+    background: var(--edg-accent);
+    border-color: var(--edg-accent);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.card {
+    background: var(--edg-card) !important;
+    border: 1px solid var(--edg-border) !important;
+    color: var(--edg-text);
+}
+
+.edg-feature-card {
+    transition: transform .2s;
+}
+.edg-feature-card:hover { transform: translateY(-3px); }
+.edg-feature-icon { font-size: 2.5rem; }
+
+/* ── Forms ─────────────────────────────────────────────────────────────────── */
+.edg-input {
+    background: var(--edg-surface) !important;
+    border: 1px solid var(--edg-border) !important;
+    color: var(--edg-text) !important;
+    border-radius: 8px;
+    min-height: 44px;
+    font-size: 1rem;
+}
+.edg-input:focus {
+    border-color: var(--edg-accent) !important;
+    box-shadow: 0 0 0 3px rgba(74,144,217,.2) !important;
+    outline: none;
+}
+.edg-input option { background: var(--edg-surface); }
+
+.form-label { font-weight: 600; font-size: .9rem; color: var(--edg-muted); margin-bottom: .3rem; }
+.form-text { font-size: .78rem; color: var(--edg-muted); }
+
+.edg-switch .form-check-input { width: 2.5rem; height: 1.25rem; cursor: pointer; }
+.edg-switch .form-check-label { padding-left: .5rem; cursor: pointer; }
+
+/* ── Navigation tabs ─────────────────────────────────────────────────────── */
+.nav-tabs { border-bottom: 1px solid var(--edg-border); }
+.nav-tabs .nav-link {
+    color: var(--edg-muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: .6rem 1rem;
+    font-weight: 600;
+    font-size: .9rem;
+    min-height: 44px;
+}
+.nav-tabs .nav-link.active {
+    color: var(--edg-accent);
+    border-bottom-color: var(--edg-accent);
+    background: transparent;
+}
+.nav-tabs .nav-link:hover:not(.active) { color: var(--edg-text); }
+
+/* ── Drive mode buttons ──────────────────────────────────────────────────── */
+.active-mode {
+    background: var(--edg-accent) !important;
+    border-color: var(--edg-accent) !important;
+    color: #fff !important;
+    font-weight: 700;
+}
+
+/* ── Address list ────────────────────────────────────────────────────────── */
+.edg-addr-item {
+    background: transparent;
+    border-bottom: 1px solid var(--edg-border) !important;
+    padding: .85rem 0;
+    color: var(--edg-text);
+}
+
+.edg-badge-home     { background: #0d4e1c; color: #d1e7dd; }
+.edg-badge-work     { background: #1e3a5f; color: #cfe2ff; }
+.edg-badge-frequent { background: #4a2d00; color: #ffd966; }
+.badge { border-radius: 6px; font-size: .75rem; padding: .25em .55em; }
+
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.edg-modal {
+    background: var(--edg-surface) !important;
+    color: var(--edg-text);
+    border: 1px solid var(--edg-border);
+    border-radius: 16px;
+}
+.edg-modal .modal-title { font-weight: 700; }
+.edg-modal .btn-close { filter: invert(1) brightness(1.5); }
+
+/* ── Drive page speed display ────────────────────────────────────────────── */
+.edg-speed-display { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+.edg-speed-limit   { font-size: .9rem; opacity: .65; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn { min-height: 44px; border-radius: 10px; font-weight: 600; }
+.btn-sm { min-height: 36px; font-size: .85rem; }
+.btn-primary { background: var(--edg-accent); border-color: var(--edg-accent); }
+.btn-primary:hover { background: #3a7bc8; border-color: #3a7bc8; }
+
+/* ── Progress ────────────────────────────────────────────────────────────── */
+.progress { background: var(--edg-border); }
+
+/* ── Accessibility: large touch targets ─────────────────────────────────── */
+@media (max-width: 576px) {
+    .btn { min-height: 50px; }
+    .btn-sm { min-height: 40px; }
+    .edg-input { min-height: 50px; }
+    .nav-tabs .nav-link { min-height: 50px; padding: .7rem .8rem; }
+}
+
+/* ── Landscape drive mode ────────────────────────────────────────────────── */
+@media (orientation: landscape) and (max-height: 500px) {
+    #map { height: 55vw; }
+    .edg-speed-display { font-size: 2rem; }
+    .edg-hero { min-height: 200px; }
+}

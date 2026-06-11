@@ -1,0 +1,168 @@
+@model NavigationViewModel
+@{
+    ViewData["Title"] = "Navigate";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 42vh; min-height: 220px; border-radius: 12px; }
+        .edg-speed-display { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+        .edg-speed-limit  { font-size: 1rem; opacity: .7; }
+        .edg-alert-banner { border-radius: 10px; font-size: 1rem; font-weight: 600; padding: .75rem 1rem; margin-bottom: .5rem; display: flex; align-items: center; gap: .6rem; animation: slideIn .3s ease; }
+        @@keyframes slideIn { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
+        .edg-alert-info    { background:#1e3a5f; color:#cfe2ff; }
+        .edg-alert-warning { background:#7c4a00; color:#fff3cd; }
+        .edg-alert-danger  { background:#6e0e0e; color:#f8d7da; }
+        .edg-alert-success { background:#0d4e1c; color:#d1e7dd; }
+        #blindSpotBanner { background: #3d2200; color: #ffd966; font-weight: 700; text-align: center; border-radius: 10px; padding: .6rem; display: none; }
+        .edg-mode-btn { min-width: 140px; font-size: .85rem; }
+        .edg-drive-btn { font-size: 1.1rem; font-weight: 700; min-height: 56px; }
+        #dbMeter { height: 6px; border-radius: 3px; transition: width .4s; }
+    </style>
+}
+
+<div class="container-fluid px-3 py-3" id="navPage">
+
+    <!-- Mode + Destination -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <div class="d-flex gap-2 mb-3 flex-wrap">
+                <button id="btnDestMode" class="btn btn-primary edg-mode-btn active-mode"
+                        onclick="setMode('destination')">🗺️ Drive to Destination</button>
+                <button id="btnJustDrive" class="btn btn-outline-secondary edg-mode-btn"
+                        onclick="setMode('justdrive')">🚗 Just Drive</button>
+            </div>
+
+            <div id="destinationRow">
+                <label class="form-label fw-semibold small">Destination</label>
+                <select id="destinationSelect" class="form-select edg-input mb-2">
+                    <option value="">— Select saved address —</option>
+                    @foreach (var a in Model.Addresses)
+                    {
+                        <option value="@a.Id"
+                                data-lat="@a.Latitude"
+                                data-lng="@a.Longitude"
+                                data-addr="@a.FullAddress">
+                            @a.Label — @a.FullAddress
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button id="btnStart" class="btn btn-success edg-drive-btn flex-grow-1"
+                        onclick="startDrive()">▶ Start Navigation</button>
+                <button id="btnStop" class="btn btn-danger edg-drive-btn px-4"
+                        onclick="stopDrive()" style="display:none">⏹ Stop</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permissions warning -->
+    <div id="permWarning" class="alert alert-warning py-2 small" style="display:none">
+        ⚠️ <span id="permWarningText"></span>
+    </div>
+
+    <!-- Speed + Map row -->
+    <div class="row g-3 mb-3">
+        <div class="col-4">
+            <div class="card border-0 shadow-sm h-100 text-center p-3">
+                <div class="small text-muted mb-1">Speed</div>
+                <div id="speedDisplay" class="edg-speed-display text-white">0</div>
+                <div class="edg-speed-limit text-muted">km/h</div>
+                <div id="speedLimitBadge" class="badge bg-secondary mt-1 small">limit —</div>
+            </div>
+        </div>
+        <div class="col-8">
+            <div id="map" class="shadow-sm"></div>
+        </div>
+    </div>
+
+    <!-- dB meter -->
+    <div class="card border-0 shadow-sm mb-3 p-3">
+        <div class="d-flex justify-content-between small text-muted mb-1">
+            <span>🔊 Cabin noise</span>
+            <span id="dbValue">— dB</span>
+        </div>
+        <div class="progress" style="height:6px">
+            <div id="dbMeter" class="progress-bar bg-success" role="progressbar" style="width:0%"></div>
+        </div>
+    </div>
+
+    <!-- Lane position control (shown when route has ≥2 lanes) -->
+    <div id="laneControl" class="card border-0 shadow-sm mb-3 p-3" style="display:none">
+        <div class="small text-muted text-center mb-2">Your Lane Position</div>
+        <div class="d-flex justify-content-center gap-2 flex-wrap" id="laneButtons"></div>
+    </div>
+
+    <!-- Blind spot hold -->
+    <div id="blindSpotBanner">👁️ Check blind spot before changing lanes</div>
+
+    <!-- Alert banners -->
+    <div id="alertContainer"></div>
+
+    <!-- Status line -->
+    <div class="text-muted small text-center mt-2" id="statusLine">
+        Ready — tap Start Navigation to begin
+    </div>
+</div>
+
+<!-- Post-drive summary modal -->
+<div class="modal fade" id="summaryModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content edg-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">📊 Drive Summary</h5>
+            </div>
+            <div class="modal-body" id="summaryBody"></div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Permissions modal -->
+<div class="modal fade" id="permModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content edg-modal">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">📱 Permissions Needed</h5>
+            </div>
+            <div class="modal-body">
+                <p>eyedriveguide needs the following browser permissions to work:</p>
+                <ul>
+                    <li><strong>📍 Location</strong> — to track your position and speed</li>
+                    <li><strong>🔊 Microphone</strong> — to monitor cabin noise (dB level only, not recorded)</li>
+                    <li><strong>📷 Camera</strong> — to detect backing (optical flow only, not recorded)</li>
+                </ul>
+                <p class="text-muted small">All sensor data is processed on-device. Nothing is sent to a server.</p>
+                <div id="permResults"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-primary" onclick="requestPermissions()">Grant Permissions</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Skip</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js" crossorigin="anonymous"></script>
+<script>
+    window.EDG_SETTINGS = {
+        distractionDbLevel: @Model.Settings.DistractionDbLevel,
+        yellowThreshold: @Model.Settings.YellowDistanceThreshold,
+        redThreshold: @Model.Settings.RedDistanceThreshold,
+        followingDistanceMetres: @Model.Settings.FollowingDistanceMetres,
+        weatherNightMode: @Model.Settings.WeatherNightModeAutoAdjust.ToString().ToLower()
+    };
+</script>
+<script src="~/js/alert-system.js" asp-append-version="true"></script>
+<script src="~/js/map-controller.js" asp-append-version="true"></script>
+<script src="~/js/sensor-monitor.js" asp-append-version="true"></script>
+<script src="~/js/highway-algorithm.js" asp-append-version="true"></script>
+}
