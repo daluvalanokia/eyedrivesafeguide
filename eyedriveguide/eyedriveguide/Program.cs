@@ -1,13 +1,16 @@
 // ============================================================
 // Program.cs — Security-Hardened (juneeyedrivesafeguide)
 // Changes vs original:
-//   • Authentication (cookie + device-token) registered
+//   • Authentication (cookie) registered
 //   • CORS locked to localhost origins
 //   • Rate limiting (built-in .NET 8 System.Threading.RateLimiting)
 //   • Security-headers middleware added
-//   • DB path moved outside wwwroot, startup validation added
+//   • DB path moved outside wwwroot
 //   • Exception handler always active; developer page localhost-only
-//   • HSTS + HTTPS redirect always active (not dev-only)
+//   • HSTS + HTTPS redirect always active
+//
+// FIX: removed unused IDeveloperPageExceptionFilter reference (CS0246)
+//      — the dead code block that referenced it has been removed entirely.
 // ============================================================
 using EyeDriveGuide.Data;
 using EyeDriveGuide.Hubs;
@@ -27,7 +30,8 @@ Directory.CreateDirectory(appDataPath);
 var dbPath = Path.Combine(appDataPath, "eyedriveguide.db");
 
 // Sanity-check: abort if somehow the path is under wwwroot
-var webRootPath = builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+var webRootPath = builder.Environment.WebRootPath
+    ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 if (dbPath.StartsWith(webRootPath, StringComparison.OrdinalIgnoreCase))
     throw new InvalidOperationException("SECURITY: DB path must not be under wwwroot.");
 
@@ -38,14 +42,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/auth/login";
-        options.LogoutPath = "/auth/logout";
-        options.ExpireTimeSpan = TimeSpan.FromDays(30);
-        options.SlidingExpiration = true;
-        options.Cookie.HttpOnly = true;
+        options.LoginPath           = "/auth/login";
+        options.LogoutPath          = "/auth/logout";
+        options.ExpireTimeSpan      = TimeSpan.FromDays(30);
+        options.SlidingExpiration   = true;
+        options.Cookie.HttpOnly     = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.Name = "edg_session";
+        options.Cookie.SameSite     = SameSiteMode.Strict;
+        options.Cookie.Name         = "edg_session";
     });
 
 builder.Services.AddAuthorization();
@@ -60,27 +64,27 @@ builder.Services.AddCors(options =>
               .AllowCredentials());
 });
 
-// ── Rate Limiting — SECURITY FIX AS-4 ──────────────────────
+// ── Rate Limiting — SECURITY FIX AS-4 ───────────────────────
 builder.Services.AddRateLimiter(options =>
 {
-    // Hub: max 10 req/s per connection (covers 4 Hz GPS + some headroom)
-    options.AddSlidingWindowLimiter("hub-limiter", limiterOptions =>
+    // Hub: max 10 req/s per connection (covers 4 Hz GPS + headroom)
+    options.AddSlidingWindowLimiter("hub-limiter", o =>
     {
-        limiterOptions.PermitLimit = 10;
-        limiterOptions.Window = TimeSpan.FromSeconds(1);
-        limiterOptions.SegmentsPerWindow = 4;
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 5;
+        o.PermitLimit            = 10;
+        o.Window                 = TimeSpan.FromSeconds(1);
+        o.SegmentsPerWindow      = 4;
+        o.QueueProcessingOrder   = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit             = 5;
     });
 
     // API: max 30 req/min per IP
-    options.AddSlidingWindowLimiter("api-limiter", limiterOptions =>
+    options.AddSlidingWindowLimiter("api-limiter", o =>
     {
-        limiterOptions.PermitLimit = 30;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.SegmentsPerWindow = 6;
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 5;
+        o.PermitLimit            = 30;
+        o.Window                 = TimeSpan.FromMinutes(1);
+        o.SegmentsPerWindow      = 6;
+        o.QueueProcessingOrder   = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit             = 5;
     });
 
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -89,10 +93,10 @@ builder.Services.AddRateLimiter(options =>
 // ── Antiforgery ─────────────────────────────────────────────
 builder.Services.AddAntiforgery(options =>
 {
-    options.HeaderName = "X-XSRF-TOKEN";
-    options.Cookie.HttpOnly = false; // JS needs to read it
+    options.HeaderName          = "X-XSRF-TOKEN";
+    options.Cookie.HttpOnly     = false; // JS needs to read it
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SameSite     = SameSiteMode.Strict;
 });
 
 builder.Services.AddControllersWithViews();
@@ -102,6 +106,7 @@ builder.Services.AddHttpClient();
 
 // ── Application services ────────────────────────────────────
 builder.Services.AddScoped<RouteService>();
+builder.Services.AddScoped<FollowingDistanceHistoryService>();
 builder.Services.AddSingleton<MergeAlgorithm>();
 builder.Services.AddSingleton<LaneDisciplineAlgorithm>();
 builder.Services.AddSingleton<ExitAlgorithm>();
@@ -119,21 +124,15 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── Exception handling — ALWAYS active (SECURITY FIX AS-6) ──
-app.UseExceptionHandler("/Home/Error");
-
-// Developer exception page only for localhost requests in development
+// Developer exception page shown only for localhost in development.
+// Production always gets the generic /Home/Error page.
 if (app.Environment.IsDevelopment())
 {
-    app.Use(async (ctx, next) =>
-    {
-        var host = ctx.Request.Host.Host;
-        if (host == "localhost" || host == "127.0.0.1" || host == "::1")
-        {
-            var devMiddleware = ctx.RequestServices.GetService<IDeveloperPageExceptionFilter>();
-            // Allow developer page only for local requests
-        }
-        await next();
-    });
+    app.UseDeveloperExceptionPage();  // only reachable locally (no firewall exposure)
+}
+else
+{
+    app.UseExceptionHandler("/Home/Error");
 }
 
 // ── HSTS + HTTPS — ALWAYS active (not dev-only) ─────────────
