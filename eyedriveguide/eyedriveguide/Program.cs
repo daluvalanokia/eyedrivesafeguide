@@ -1,16 +1,13 @@
 // ============================================================
 // Program.cs — Security-Hardened (juneeyedrivesafeguide)
-// Changes vs original:
-//   • Authentication (cookie) registered
-//   • CORS locked to localhost origins
-//   • Rate limiting (built-in .NET 8 System.Threading.RateLimiting)
-//   • Security-headers middleware added
-//   • DB path moved outside wwwroot
-//   • Exception handler always active; developer page localhost-only
-//   • HSTS + HTTPS redirect always active
 //
-// FIX: removed unused IDeveloperPageExceptionFilter reference (CS0246)
-//      — the dead code block that referenced it has been removed entirely.
+// FIX (runtime): Antiforgery SecurePolicy changed from Always
+//   to SameAsRequest in Development so HTTP localhost requests
+//   don't crash. Production keeps Always (runs behind HTTPS).
+//
+// FIX (runtime): HSTS and HTTPS redirect suppressed in
+//   Development — UseHttpsRedirection() on a plain HTTP dev
+//   server causes redirect loops and breaks the antiforgery fix.
 // ============================================================
 using EyeDriveGuide.Data;
 using EyeDriveGuide.Hubs;
@@ -23,13 +20,11 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Database — path OUTSIDE web root ────────────────────────
-// SECURITY FIX DS-1: never place DB in content root (web-accessible).
+// ── Database — path OUTSIDE web root (SECURITY FIX DS-1) ────
 var appDataPath = Path.Combine(builder.Environment.ContentRootPath, "App_Data");
 Directory.CreateDirectory(appDataPath);
 var dbPath = Path.Combine(appDataPath, "eyedriveguide.db");
 
-// Sanity-check: abort if somehow the path is under wwwroot
 var webRootPath = builder.Environment.WebRootPath
     ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 if (dbPath.StartsWith(webRootPath, StringComparison.OrdinalIgnoreCase))
@@ -38,65 +33,69 @@ if (dbPath.StartsWith(webRootPath, StringComparison.OrdinalIgnoreCase))
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
 
-// ── Authentication — SECURITY FIX AS-1 ─────────────────────
+// ── Authentication (SECURITY FIX AS-1) ──────────────────────
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath           = "/auth/login";
-        options.LogoutPath          = "/auth/logout";
-        options.ExpireTimeSpan      = TimeSpan.FromDays(30);
-        options.SlidingExpiration   = true;
-        options.Cookie.HttpOnly     = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite     = SameSiteMode.Strict;
-        options.Cookie.Name         = "edg_session";
+        options.LoginPath         = "/auth/login";
+        options.LogoutPath        = "/auth/logout";
+        options.ExpireTimeSpan    = TimeSpan.FromDays(30);
+        options.SlidingExpiration = true;
+        options.Cookie.HttpOnly   = true;
+        // FIX: SameAsRequest in dev (HTTP), Always in production (HTTPS)
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.Name     = "edg_session";
     });
 
 builder.Services.AddAuthorization();
 
-// ── CORS — SECURITY FIX OW-3: lock to localhost ─────────────
+// ── CORS (SECURITY FIX OW-3) ────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("LocalOnly", policy =>
-        policy.WithOrigins("http://localhost:5000", "https://localhost:5001")
+        policy.WithOrigins("http://localhost:5000", "https://localhost:5001",
+                           "http://localhost:5193","https://localhost:7193")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials());
 });
 
-// ── Rate Limiting — SECURITY FIX AS-4 ───────────────────────
+// ── Rate Limiting (SECURITY FIX AS-4) ───────────────────────
 builder.Services.AddRateLimiter(options =>
 {
-    // Hub: max 10 req/s per connection (covers 4 Hz GPS + headroom)
     options.AddSlidingWindowLimiter("hub-limiter", o =>
     {
-        o.PermitLimit            = 10;
-        o.Window                 = TimeSpan.FromSeconds(1);
-        o.SegmentsPerWindow      = 4;
-        o.QueueProcessingOrder   = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit             = 5;
+        o.PermitLimit          = 10;
+        o.Window               = TimeSpan.FromSeconds(1);
+        o.SegmentsPerWindow    = 4;
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit           = 5;
     });
-
-    // API: max 30 req/min per IP
     options.AddSlidingWindowLimiter("api-limiter", o =>
     {
-        o.PermitLimit            = 30;
-        o.Window                 = TimeSpan.FromMinutes(1);
-        o.SegmentsPerWindow      = 6;
-        o.QueueProcessingOrder   = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit             = 5;
+        o.PermitLimit          = 30;
+        o.Window               = TimeSpan.FromMinutes(1);
+        o.SegmentsPerWindow    = 6;
+        o.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit           = 5;
     });
-
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
-// ── Antiforgery ─────────────────────────────────────────────
+// ── Antiforgery ──────────────────────────────────────────────
 builder.Services.AddAntiforgery(options =>
 {
-    options.HeaderName          = "X-XSRF-TOKEN";
-    options.Cookie.HttpOnly     = false; // JS needs to read it
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite     = SameSiteMode.Strict;
+    options.HeaderName      = "X-XSRF-TOKEN";
+    options.Cookie.HttpOnly = false; // JS must read it
+    // FIX: match SecurePolicy to environment — avoids the
+    //   "not an SSL request" InvalidOperationException in dev
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
 });
 
 builder.Services.AddControllersWithViews();
@@ -104,7 +103,7 @@ builder.Services.AddSignalR();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
 
-// ── Application services ────────────────────────────────────
+// ── Application services ─────────────────────────────────────
 builder.Services.AddScoped<RouteService>();
 builder.Services.AddScoped<FollowingDistanceHistoryService>();
 builder.Services.AddSingleton<MergeAlgorithm>();
@@ -123,23 +122,23 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
 }
 
-// ── Exception handling — ALWAYS active (SECURITY FIX AS-6) ──
-// Developer exception page shown only for localhost in development.
-// Production always gets the generic /Home/Error page.
+// ── Exception handling ───────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage();  // only reachable locally (no firewall exposure)
+    app.UseDeveloperExceptionPage();
 }
 else
 {
     app.UseExceptionHandler("/Home/Error");
+    // FIX: HSTS + HTTPS redirect only in production.
+    // In development the app runs over plain HTTP (launchSettings port 5193).
+    // Enabling these in dev causes redirect loops and triggers the
+    // antiforgery SecurePolicy = Always crash.
+    app.UseHsts();
+    app.UseHttpsRedirection();
 }
 
-// ── HSTS + HTTPS — ALWAYS active (not dev-only) ─────────────
-app.UseHsts();
-app.UseHttpsRedirection();
-
-// ── Security Headers — SECURITY FIX AS-7 / OW-3 ────────────
+// ── Security Headers (SECURITY FIX AS-7) ────────────────────
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseStaticFiles();
@@ -150,7 +149,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 
-// ── Antiforgery middleware for API routes ────────────────────
+// ── Antiforgery middleware ───────────────────────────────────
 app.UseMiddleware<AntiforgeryTokenMiddleware>();
 
 app.MapControllers();
